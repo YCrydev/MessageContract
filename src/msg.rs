@@ -6,15 +6,11 @@ use serde::{Deserialize, Serialize};
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub collection: String,
-    pub contract: String,
-    pub description: String,
-    pub symbol: String,
-    pub logo_uri: String,
-    pub banner_uri: String,
-    pub supply: i32,
-    pub creators: Vec<Creator>,
-    pub basis_points: u32, // 100 basis points = 1% of list price
+    pub flagged: bool,
+    pub chat_id: String,
+    pub sender_address: String,
+    pub receiver_address: String,
+    pub owner: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -25,12 +21,12 @@ pub struct Royalties {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct OwnerOf {
-    pub token_id: String,
+    pub message_id: String,
 } 
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct GetApprovals {
-    token_id: String
+    message_id: String
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -52,30 +48,11 @@ pub struct Creator {
 #[cw_serde]
 pub enum ExecuteMsg {
     Flag { enabled: bool },
-    List {
-        id: String,
-        price: Uint128,
-        expires: i128
+    SendMessage {
+        id : String,
+        message_type:String,
+        message:String
     },
-    Buy {
-        id : String 
-    },
-    DeList {
-        id: String
-    },
-    UpdateMetadata {
-        creators: Option<Vec<Creator>>,
-        collection: Option<String>,
-        website: Option<String>,
-        contact: Option<String>,
-        twitter: Option<String>,
-        telegram: Option<String>,
-        discord: Option<String>,
-        description: Option<String>,
-        logo_uri: Option<String>,
-        banner_uri: Option<String>,
-        basis_points: Option<u16>
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
@@ -91,13 +68,13 @@ pub struct Rmessage {
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 pub struct SendTokenMsg {
     pub recipient: String,
-    pub token_id: String,
+    pub message_id: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 pub struct Revoke {
     pub spender: String,
-    pub token_id: String
+    pub message_id: String
 }
 
 #[cw_serde]
@@ -106,38 +83,31 @@ pub enum QueryMsg {
     #[returns(GetMetadataResponse)]
     GetMetadata {},
 
-    #[returns(GetListedResponse)]
-    GetListed {},
+    #[returns(GetMessageResponse)]
+    GetMessages {},
 }
 
 // We define a custom struct for each query response
 #[cw_serde]
-pub struct GetMetadataResponse {
+pub struct GetMetadataResponse { 
     pub flagged: bool,
-    pub collection: String,
-    pub description: String,
-    pub symbol: String,
-    pub logo_uri: String,
-    pub banner_uri: String,
-    pub supply: i32,
-    pub contract: String,
-    pub website: String,
-    pub contact: String,
-    pub twitter: String,
-    pub telegram: String,
-    pub discord: String,
-}
-
-#[cw_serde]
-pub struct GetListedResponse {
-    pub number: i32,
-    pub listed: Vec<NFT>
-}
-
-#[cw_serde]
-pub struct NFT {
-    pub id: String,
-    pub uri: String,
+    pub chat_id: String,
+    pub sender_address: String,
+    pub receiver_address: String,
     pub owner: String,
-    pub is_listed: bool
+  
+}
+
+#[cw_serde]
+pub struct GetMessageResponse {
+    pub number: i32,
+    pub messages: Vec<MessageState>
+}
+
+#[cw_serde]
+pub struct MessageState {
+    pub id: String,
+    pub owner: String,
+    pub message_type: String,
+    pub message: String,
 }
