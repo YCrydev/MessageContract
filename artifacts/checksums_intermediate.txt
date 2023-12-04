@@ -1,2 +1,0 @@
-9b20ae2aab9472b8d4e4f754bc2fa4a23c723ae23e9c4dac770c43aea950de90  ./target/wasm32-unknown-unknown/release/Nebula_Exchange.wasm
-50ce04ece3432a00a83b13bd346f15e400af0feb73dd5f71efc984955ffc2c39  ./target/wasm32-unknown-unknown/release/Ninjakits_Messenger.wasm
