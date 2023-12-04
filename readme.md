@@ -1,6 +1,2 @@
 # Exchange
-The Ninjakits Messaging contracts
-
-Thanks to Morgan from Nebula!
-
-
+The nebula marketplace exchange contracts
