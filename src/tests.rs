@@ -4,24 +4,40 @@ use cosmwasm_std::{Addr, Uint128, Decimal, Empty, coins};
 use cw_multi_test::{App, ContractWrapper, Executor};
 use nft_multi_test::{self, cw721_contract};
 
-use crate::{contract::*, msg::{InstantiateMsg, Creator, ExecuteMsg,QueryMsg}, ContractError};
+use crate::{contract::*, msg::{InstantiateMsg, Creator, ExecuteMsg}, ContractError};
 
 type Extension = Option<Empty>;
 
 #[test]
 fn init() {
     let mut app = App::default();
+
     let code = ContractWrapper::new(execute, instantiate, query);
     let code_id = app.store_code(Box::new(code));
+    let nft_code = cw721_contract();
+    let nft_code_id = app.store_code(nft_code);
+    let nft = nft_multi_test::instantiate(&mut app, nft_code_id, &nft_multi_test::InstantiateMsg {
+        name: "Test Collection".to_string(),
+        symbol: "TEST".to_string(),
+        minter: "owner".to_string(),
+    }).expect("Could not instantiate nft contract");
+
     app.instantiate_contract(
         code_id, 
         Addr::unchecked("owner"), 
         &InstantiateMsg {
-            flagged:false,
-            chat_id: "testid".to_string(),
-            sender_address: "address1".to_string(),
-            receiver_address: "address2".to_string(),
-            owner: "address1".to_string(), 
+            collection: "collection".to_string(),
+            contract: (&nft).to_string(),
+            description: "Test collection on Nebula".to_string(),
+            symbol: "TEST".to_string(),
+            logo_uri: "https://example.com/logo.png".to_string(),
+            banner_uri: "https://example.com/banner.png".to_string(),
+            supply: 100,
+            creators: vec![Creator {
+                address: "creator".to_string(),
+                share: 100,
+            }],
+            basis_points: 100,
         }, 
         &vec![], 
         "Instantiate Exchange Contract", 
@@ -30,98 +46,407 @@ fn init() {
 }
 
 #[test]
-fn send_message() {
+fn list() {
     let mut app = App::default();
+
     let code = ContractWrapper::new(execute, instantiate, query);
     let code_id = app.store_code(Box::new(code));
-    let chat =   app.instantiate_contract(
+    let nft_code = cw721_contract();
+    let nft_code_id = app.store_code(nft_code);
+    let nft = nft_multi_test::instantiate(&mut app, nft_code_id, &nft_multi_test::InstantiateMsg {
+        name: "Test Collection".to_string(),
+        symbol: "TEST".to_string(),
+        minter: "owner".to_string(),
+    }).expect("Could not instantiate nft contract");
+
+    let exchange = app.instantiate_contract(
         code_id, 
         Addr::unchecked("owner"), 
         &InstantiateMsg {
-            flagged:false,
-            chat_id: "testid".to_string(),
-            sender_address: "address1".to_string(),
-            receiver_address: "address2".to_string(),
-            owner: "address1".to_string(), 
+            collection: "collection".to_string(),
+            contract: (&nft).to_string(),
+            description: "Test collection on Nebula".to_string(),
+            symbol: "TEST".to_string(),
+            logo_uri: "https://example.com/logo.png".to_string(),
+            banner_uri: "https://example.com/banner.png".to_string(),
+            supply: 100,
+            creators: vec![Creator {
+                address: "creator".to_string(),
+                share: 100,
+            }],
+            basis_points: 100,
         }, 
         &vec![], 
         "Instantiate Exchange Contract", 
         None
     ).expect("contract failed to instantiate");
 
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&nft),
+        &nft_multi_test::ExecuteMsg::Mint(nft_multi_test::MintMsg::<Extension> {
+            token_id: 0.to_string(),
+            owner: "owner".to_string(),
+            token_uri: Some("token_uri".to_string()),
+            extension: None
+        }),
+        &vec![]
+    ).expect("Minting is borked");
 
     app.execute_contract(
-        Addr::unchecked("address1"),
-        chat,
-        &ExecuteMsg::SendMessage {
+        Addr::unchecked("owner"),
+        Addr::unchecked(&nft),
+        &nft_multi_test::ExecuteMsg::<Option<Empty>>::Approve { 
+            token_id: 0.to_string(),
+            spender: String::from(&exchange),
+            expires: None
+        },
+        &vec![]
+    ).expect("approval is borked");
+
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        exchange,
+        &ExecuteMsg::List {
             id: 0.to_string(),
-            message_type: "text".to_string(),
-            message: "hey".to_string(),
+            price: Uint128::new(1000000),
+            expires: 0
         },
         &vec![],
-    ).expect("could not send message");
+    ).expect("could not list");
 }
 
 #[test]
-fn flag() {
-    let mut app = App::default();
+fn buy() {
+    let mut app = App::new(|router, _, storage| {
+        router
+            .bank
+            .init_balance(storage, &Addr::unchecked("buyer"), coins(2010000, "inj"))
+            .unwrap()
+    });
+
     let code = ContractWrapper::new(execute, instantiate, query);
     let code_id = app.store_code(Box::new(code));
-    let chat =   app.instantiate_contract(
+    let nft_code = cw721_contract();
+    let nft_code_id = app.store_code(nft_code);
+    let nft = nft_multi_test::instantiate(&mut app, nft_code_id, &nft_multi_test::InstantiateMsg {
+        name: "Test Collection".to_string(),
+        symbol: "TEST".to_string(),
+        minter: "owner".to_string(),
+    }).expect("Could not instantiate nft contract");
+
+    let exchange = app.instantiate_contract(
         code_id, 
         Addr::unchecked("owner"), 
         &InstantiateMsg {
-            flagged:false,
-            chat_id: "testid".to_string(),
-            sender_address: "address1".to_string(),
-            receiver_address: "address2".to_string(),
-            owner: "address1".to_string(), 
+            collection: "collection".to_string(),
+            contract: (&nft).to_string(),
+            description: "Test collection on Nebula".to_string(),
+            symbol: "TEST".to_string(),
+            logo_uri: "https://example.com/logo.png".to_string(),
+            banner_uri: "https://example.com/banner.png".to_string(),
+            supply: 100,
+            creators: vec![Creator {
+                address: "creator".to_string(),
+                share: 100,
+            }],
+            basis_points: 100,
         }, 
         &vec![], 
         "Instantiate Exchange Contract", 
         None
     ).expect("contract failed to instantiate");
-
 
     app.execute_contract(
-        Addr::unchecked("address1"),
-        chat,
-        &ExecuteMsg::Flag {
-            enabled:true
+        Addr::unchecked("owner"),
+        Addr::unchecked(&nft),
+        &nft_multi_test::ExecuteMsg::Mint(nft_multi_test::MintMsg::<Extension> {
+            token_id: 0.to_string(),
+            owner: "owner".to_string(),
+            token_uri: Some("token_uri".to_string()),
+            extension: None
+        }),
+        &vec![]
+    ).expect("Minting is borked");
+
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&nft),
+        &nft_multi_test::ExecuteMsg::<Option<Empty>>::Approve { 
+            token_id: 0.to_string(),
+            spender: String::from(&exchange),
+            expires: None
+        },
+        &vec![]
+    ).expect("approval is borked");
+
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&exchange),
+        &ExecuteMsg::List {
+            id: 0.to_string(),
+            price: Uint128::new(1000000),
+            expires: 0
         },
         &vec![],
-    ).expect("could not send message");
+    ).expect("could not list");
+
+    app.execute_contract(
+        Addr::unchecked("buyer"),
+        Addr::unchecked(&exchange),
+        &ExecuteMsg::Buy {
+            id: 0.to_string(),
+        },
+        &coins(1010000, "inj"),
+    ).expect("could not buy");
 }
+
 #[test]
-fn get_metadata() {
+fn dup_listing() {
     let mut app = App::default();
+
     let code = ContractWrapper::new(execute, instantiate, query);
     let code_id = app.store_code(Box::new(code));
-    let chat =   app.instantiate_contract(
+    let nft_code = cw721_contract();
+    let nft_code_id = app.store_code(nft_code);
+    let nft = nft_multi_test::instantiate(&mut app, nft_code_id, &nft_multi_test::InstantiateMsg {
+        name: "Test Collection".to_string(),
+        symbol: "TEST".to_string(),
+        minter: "owner".to_string(),
+    }).expect("Could not instantiate nft contract");
+
+    let exchange = app.instantiate_contract(
         code_id, 
         Addr::unchecked("owner"), 
         &InstantiateMsg {
-            flagged:false,
-            chat_id: "testid".to_string(),
-            sender_address: "address1".to_string(),
-            receiver_address: "address2".to_string(),
-            owner: "address1".to_string(), 
+            collection: "collection".to_string(),
+            contract: (&nft).to_string(),
+            description: "Test collection on Nebula".to_string(),
+            symbol: "TEST".to_string(),
+            logo_uri: "https://example.com/logo.png".to_string(),
+            banner_uri: "https://example.com/banner.png".to_string(),
+            supply: 100,
+            creators: vec![Creator {
+                address: "creator".to_string(),
+                share: 100,
+            }],
+            basis_points: 100,
         }, 
         &vec![], 
         "Instantiate Exchange Contract", 
         None
     ).expect("contract failed to instantiate");
 
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&nft),
+        &nft_multi_test::ExecuteMsg::Mint(nft_multi_test::MintMsg::<Extension> {
+            token_id: 0.to_string(),
+            owner: "owner".to_string(),
+            token_uri: Some("token_uri".to_string()),
+            extension: None
+        }),
+        &vec![]
+    ).expect("Minting is borked");
 
-    app.query(
-        Addr::unchecked("address1"),
-        chat,
-        &QueryMsg::GetMetadata{
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&nft),
+        &nft_multi_test::ExecuteMsg::<Option<Empty>>::Approve { 
+            token_id: 0.to_string(),
+            spender: String::from(&exchange),
+            expires: None
+        },
+        &vec![]
+    ).expect("approval is borked");
+
+    // should pass
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&exchange),
+        &ExecuteMsg::List {
+            id: 0.to_string(),
+            price: Uint128::new(1000000),
+            expires: 0
         },
         &vec![],
-    ).expect("could not send message");
+    ).expect("could not list");
+
+    let err: ContractError = app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&exchange),
+        &ExecuteMsg::List {
+            id: 0.to_string(),
+            price: Uint128::new(1000000),
+            expires: 0
+        },
+        &vec![],
+    ).unwrap_err().downcast().unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
 }
 
+#[test]
+fn delist_deauth() {
+    let mut app = App::default();
+
+    let code = ContractWrapper::new(execute, instantiate, query);
+    let code_id = app.store_code(Box::new(code));
+    let nft_code = cw721_contract();
+    let nft_code_id = app.store_code(nft_code);
+    let nft = nft_multi_test::instantiate(&mut app, nft_code_id, &nft_multi_test::InstantiateMsg {
+        name: "Test Collection".to_string(),
+        symbol: "TEST".to_string(),
+        minter: "owner".to_string(),
+    }).expect("Could not instantiate nft contract");
+
+    let exchange = app.instantiate_contract(
+        code_id, 
+        Addr::unchecked("owner"), 
+        &InstantiateMsg {
+            collection: "collection".to_string(),
+            contract: (&nft).to_string(),
+            description: "Test collection on Nebula".to_string(),
+            symbol: "TEST".to_string(),
+            logo_uri: "https://example.com/logo.png".to_string(),
+            banner_uri: "https://example.com/banner.png".to_string(),
+            supply: 100,
+            creators: vec![Creator {
+                address: "creator".to_string(),
+                share: 100,
+            }],
+            basis_points: 100,
+        }, 
+        &vec![], 
+        "Instantiate Exchange Contract", 
+        None
+    ).expect("contract failed to instantiate");
+
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&nft),
+        &nft_multi_test::ExecuteMsg::Mint(nft_multi_test::MintMsg::<Extension> {
+            token_id: 0.to_string(),
+            owner: "owner".to_string(),
+            token_uri: Some("token_uri".to_string()),
+            extension: None
+        }),
+        &vec![]
+    ).expect("Minting is borked");
+
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&nft),
+        &nft_multi_test::ExecuteMsg::<Option<Empty>>::Approve { 
+            token_id: 0.to_string(),
+            spender: String::from(&exchange),
+            expires: None
+        },
+        &vec![]
+    ).expect("approval is borked");
+
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&exchange),
+        &ExecuteMsg::List {
+            id: 0.to_string(),
+            price: Uint128::new(1000000),
+            expires: 0
+        },
+        &vec![],
+    ).expect("could not list");
+
+    let err: ContractError = app.execute_contract(
+        Addr::unchecked("bad_actor"),
+        Addr::unchecked(&exchange),
+        &ExecuteMsg::DeList {
+            id: 0.to_string(),
+        },
+        &vec![]
+    ).unwrap_err().downcast().unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
+}
+
+#[test]
+fn delist() {
+    let mut app = App::default();
+
+    let code = ContractWrapper::new(execute, instantiate, query);
+    let code_id = app.store_code(Box::new(code));
+    let nft_code = cw721_contract();
+    let nft_code_id = app.store_code(nft_code);
+    let nft = nft_multi_test::instantiate(&mut app, nft_code_id, &nft_multi_test::InstantiateMsg {
+        name: "Test Collection".to_string(),
+        symbol: "TEST".to_string(),
+        minter: "owner".to_string(),
+    }).expect("Could not instantiate nft contract");
+
+    let exchange = app.instantiate_contract(
+        code_id, 
+        Addr::unchecked("owner"), 
+        &InstantiateMsg {
+            collection: "collection".to_string(),
+            contract: (&nft).to_string(),
+            description: "Test collection on Nebula".to_string(),
+            symbol: "TEST".to_string(),
+            logo_uri: "https://example.com/logo.png".to_string(),
+            banner_uri: "https://example.com/banner.png".to_string(),
+            supply: 100,
+            creators: vec![Creator {
+                address: "creator".to_string(),
+                share: 100,
+            }],
+            basis_points: 100,
+        }, 
+        &vec![], 
+        "Instantiate Exchange Contract", 
+        None
+    ).expect("contract failed to instantiate");
+
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&nft),
+        &nft_multi_test::ExecuteMsg::Mint(nft_multi_test::MintMsg::<Extension> {
+            token_id: 0.to_string(),
+            owner: "owner".to_string(),
+            token_uri: Some("token_uri".to_string()),
+            extension: None
+        }),
+        &vec![]
+    ).expect("Minting is borked");
+
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&nft),
+        &nft_multi_test::ExecuteMsg::<Option<Empty>>::Approve { 
+            token_id: 0.to_string(),
+            spender: String::from(&exchange),
+            expires: None
+        },
+        &vec![]
+    ).expect("approval is borked");
+
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&exchange),
+        &ExecuteMsg::List {
+            id: 0.to_string(),
+            price: Uint128::new(1000000),
+            expires: 0
+        },
+        &vec![],
+    ).expect("could not list");
+
+    app.execute_contract(
+        Addr::unchecked("owner"),
+        Addr::unchecked(&exchange),
+        &ExecuteMsg::DeList {
+            id: 0.to_string(),
+        },
+        &vec![]
+    ).expect("could not delist");
+}
 
 #[test]
 fn cw_math_platform_fee() {

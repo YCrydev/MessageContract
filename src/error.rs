@@ -9,12 +9,8 @@ pub enum ContractError {
     #[error("Insufficient funds")]
     InsufficientFunds {},
 
-    #[error("Unauthorized: sender_address = {sender_address}, receiver_address = {receiver_address}, owner={owner}")]
-    Unauthorized {
-        sender_address: String,
-        receiver_address: String,
-        owner: String,
-    },
+    #[error("Unauthorized")]
+    Unauthorized {},
 
     #[error("Not found")]
     NotFound {}
