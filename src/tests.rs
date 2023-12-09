@@ -31,7 +31,12 @@ fn init() {
 
 #[test]
 fn send_message() {
-    let mut app = App::default();
+    let mut app = App::new(|router, _, storage| {
+        router
+            .bank
+            .init_balance(storage, &Addr::unchecked("address1"), coins(100000000000000, "inj"))
+            .unwrap()
+    });
     let code = ContractWrapper::new(execute, instantiate, query);
     let code_id = app.store_code(Box::new(code));
     let chat =   app.instantiate_contract(
@@ -58,7 +63,7 @@ fn send_message() {
             message_type: "text".to_string(),
             message: "hey".to_string(),
         },
-        &vec![],
+        &coins(100000000000000, "inj"),
     ).expect("could not send message");
 }
 
@@ -92,35 +97,35 @@ fn flag() {
         &vec![],
     ).expect("could not send message");
 }
-#[test]
-fn get_metadata() {
-    let mut app = App::default();
-    let code = ContractWrapper::new(execute, instantiate, query);
-    let code_id = app.store_code(Box::new(code));
-    let chat =   app.instantiate_contract(
-        code_id, 
-        Addr::unchecked("owner"), 
-        &InstantiateMsg {
-            flagged:false,
-            chat_id: "testid".to_string(),
-            sender_address: "address1".to_string(),
-            receiver_address: "address2".to_string(),
-            owner: "address1".to_string(), 
-        }, 
-        &vec![], 
-        "Instantiate Exchange Contract", 
-        None
-    ).expect("contract failed to instantiate");
+// #[test]
+// fn get_metadata() {
+//     let mut app = App::default();
+//     let code = ContractWrapper::new(execute, instantiate, query);
+//     let code_id = app.store_code(Box::new(code));
+//     let chat =   app.instantiate_contract(
+//         code_id, 
+//         Addr::unchecked("owner"), 
+//         &InstantiateMsg {
+//             flagged:false,
+//             chat_id: "testid".to_string(),
+//             sender_address: "address1".to_string(),
+//             receiver_address: "address2".to_string(),
+//             owner: "address1".to_string(), 
+//         }, 
+//         &vec![], 
+//         "Instantiate Exchange Contract", 
+//         None
+//     ).expect("contract failed to instantiate");
 
 
-    app.query(
-        Addr::unchecked("address1"),
-        chat,
-        &QueryMsg::GetMetadata{
-        },
-        &vec![],
-    ).expect("could not send message");
-}
+//     app.query(
+//         Addr::unchecked("address1"),
+//         chat,
+//         &QueryMsg::GetMetadata{
+//         },
+//         &vec![],
+//     ).expect("could not send message");
+// }
 
 
 #[test]

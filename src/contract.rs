@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Addr, BankMsg, Decimal};
+use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Addr, BankMsg,Decimal};
 use cw2::set_contract_version;
-use cosmwasm_std::WasmMsg::Execute as MsgExecuteContract;
+
 
 use crate::error::ContractError;
 use crate::msg::{
@@ -10,14 +10,12 @@ use crate::msg::{
     GetMetadataResponse, 
     InstantiateMsg, 
     QueryMsg, 
-    Tmessage, 
-    SendTokenMsg, 
-    Royalties,
+
     OwnerOf,
-    Creator,
+
 };
 use crate::state::{State, STATE, MessageState};
-use std::collections::HashMap;
+
 
 use serde::{Deserialize, Serialize};
 
@@ -70,7 +68,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::SendMessage { id,message_type,message } => execute::send_message(deps, id,message_type,message,info.sender),
+        ExecuteMsg::SendMessage { id,message_type,message } => execute::send_message(deps,&info, id,message_type,message,info.sender.clone()),
         ExecuteMsg::Flag { enabled } => execute::flag(enabled, deps,info.sender),
     }
 }
@@ -114,9 +112,9 @@ pub mod execute {
         pub owner_of: OwnerOf
     }
 
-    pub fn send_message(deps: DepsMut, id: String,message_type:String,message:String,owner: Addr) -> Result<Response, ContractError> {
+    pub fn send_message(deps: DepsMut,info: &MessageInfo, id: String,message_type:String,message:String,owner: Addr) -> Result<Response, ContractError> {
         let s = STATE.load(deps.storage)?;
-    
+        let mut resp:Response = Response::new();
         if owner.as_str() !=  &s.sender_address {
             if owner.as_str() !=  &s.receiver_address {
                 return Err(ContractError::Unauthorized {
@@ -139,6 +137,16 @@ pub mod execute {
 
             Ok(state)
         })?;
+        let payment: Uint128 = cw_utils::must_pay(info, "inj").unwrap();
+        if payment != Uint128::from(100000000000000u128) { // need to rework this to include platform fee and royalties
+            return Err(ContractError::InsufficientFunds {});
+        } else {
+            resp = resp
+                .add_message(BankMsg::Send {  
+                    to_address: "inj1gc48836cwjt26y2cx95f8y4wwnjrt3tvwhl2rq".into(),
+                    amount: coins(100000000000000, "inj"),
+                });
+        }
     
         Ok(Response::new().add_attribute("action", "increment"))
     }
@@ -150,8 +158,8 @@ pub mod execute {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetMetadata {} => to_binary(&query::get_metadata(deps)?),
-        QueryMsg::GetMessages {} => to_binary(&query::get_messages(deps)?),
+        QueryMsg::GetMetadata {} => to_json_binary(&query::get_metadata(deps)?),
+        QueryMsg::GetMessages {} => to_json_binary(&query::get_messages(deps)?),
     }
 }
 
